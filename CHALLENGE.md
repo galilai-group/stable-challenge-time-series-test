@@ -7,7 +7,12 @@ Installation instructions
 
 # Evaluation
 
-Provide an evaluate.py [onnx-model-path] that produces a json "score" used to generate the leaderboard.
+Provide an evaluate.py that takes two arguments:
+- [onnx-model-path] that produces a json "score" used to generate the leaderboard.
+- [evaluation-data-path]
+
+It should output a json score.
+
 
 # Submission 
 
