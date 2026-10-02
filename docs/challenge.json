@@ -4,7 +4,7 @@
   "description": "see https://github.com/galilai-group/stable-challenge-time-series-test/blob/main/CHALLENGE.md ",
   "metric": "score",
   "direction": "maximize",
-  "evaluator_version": "eval-a7c6d85c0b9f58ee35bdb0c43db901c2-57d5ac0b",
+  "evaluator_version": "eval-a7c6d85c0b9f58ee35bdb0c43db901c2-7830f11a",
   "closes_at": null,
   "anonymous": true,
   "accepting_submissions": true,
