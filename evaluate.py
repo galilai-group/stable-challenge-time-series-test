@@ -21,6 +21,7 @@ import json
 import os
 import sys
 import time
+from concurrent.futures import ThreadPoolExecutor
 
 import numpy as np
 import onnxruntime as ort
@@ -48,8 +49,13 @@ def load_model(path, allow_cpu=False):
         raise SubmissionError(f"Could not load the ONNX model: {e}") from None
     # onnxruntime falls back to CPU silently when CUDA fails to initialise; that is the machine's fault, and far
     # too slow for the full suite, so stop rather than run.
-    if sess.get_providers()[0] != CUDA and not allow_cpu:
-        raise RuntimeError(f"onnxruntime is running on {sess.get_providers()[0]}, not {CUDA}")
+    if sess.get_providers()[0] != CUDA:
+        if not allow_cpu:
+            raise RuntimeError(f"onnxruntime is running on {sess.get_providers()[0]}, not {CUDA}")
+        # On CPU, one single-threaded batch per core in parallel (see embed) is 2-4x faster than one batch at a
+        # time across all cores, since a batch of 64 windows rarely keeps many threads busy.
+        opts.intra_op_num_threads = 1
+        sess = ort.InferenceSession(path, opts, providers=[CPU])
     ins, outs = sess.get_inputs(), sess.get_outputs()
     if len(ins) != 1 or len(outs) != 1:
         raise SubmissionError("ONNX model must have exactly one input and one output")
@@ -62,10 +68,13 @@ def load_model(path, allow_cpu=False):
 
 
 def embed(sess, windows):
-    """[n, CONTEXT] -> [n, D]. Always runs full batches of BATCH; the last one is zero-padded and trimmed."""
+    """[n, CONTEXT] -> [n, D]. Always runs full batches of BATCH; the last one is zero-padded and trimmed.
+
+    On a GPU the batches run one after another; on CPU, one per core in parallel.
+    """
     name = sess.get_inputs()[0].name
-    out, dim = [], None
-    for i in range(0, len(windows), BATCH):
+
+    def run(i):
         block = np.asarray(windows[i : i + BATCH], dtype=np.float32)
         x = np.zeros((BATCH, CONTEXT), np.float32)
         x[: len(block)] = block
@@ -75,13 +84,24 @@ def embed(sess, windows):
             raise SubmissionError(f"Model failed on float32 input of shape {(BATCH, CHANNELS, CONTEXT)}: {e}") from None
         if not isinstance(z, np.ndarray) or z.ndim != 2 or z.shape[0] != BATCH:
             raise SubmissionError(f"Embedding shape {getattr(z, 'shape', None)}, expected ({BATCH}, D)")
+        return z[: len(block)]
+
+    starts = range(0, len(windows), BATCH)
+    if sess.get_providers()[0] == CPU:
+        cores = len(os.sched_getaffinity(0)) if hasattr(os, "sched_getaffinity") else os.cpu_count()
+        with ThreadPoolExecutor(cores) as pool:
+            results = list(pool.map(run, starts))
+    else:
+        results = map(run, starts)
+    out, dim = [], None
+    for z in results:
         if dim is None:
             dim = z.shape[1]
             if not 1 <= dim <= MAX_DIM:
                 raise SubmissionError(f"Embedding width {dim}, expected between 1 and {MAX_DIM}")
         elif z.shape[1] != dim:
             raise SubmissionError("Model returned inconsistent embedding widths")
-        out.append(z[: len(block)].astype(np.float32))
+        out.append(z.astype(np.float32))
     z = np.concatenate(out)
     if not np.isfinite(z).all():
         raise SubmissionError("Embeddings contain NaN or infinite values")
@@ -99,7 +119,8 @@ def probe_auc(x, labels, test):
     """Standardize, one ridge per class on +/-1 targets, macro one-vs-rest ROC AUC on the test items."""
     fit = ~test
     scaler = StandardScaler().fit(x[fit])
-    ridge = RidgeCV(alphas=ALPHAS, alpha_per_target=True).fit(scaler.transform(x[fit]), np.where(labels[fit], 1.0, -1.0))
+    targets = np.where(labels[fit], 1.0, -1.0)
+    ridge = RidgeCV(alphas=ALPHAS, alpha_per_target=True).fit(scaler.transform(x[fit]), targets)
     scores = ridge.predict(scaler.transform(x[test]))
     y = labels[test]
     aucs = [roc_auc_score(y[:, c], scores[:, c]) for c in range(y.shape[1]) if 0 < y[:, c].sum() < len(y)]
