@@ -6,7 +6,7 @@
     "score"
   ],
   "direction": "maximize",
-  "evaluator_version": "eval-a7c6d85c0b9f58ee35bdb0c43db901c2-7830f11a",
+  "evaluator_version": "eval-a7c6d85c0b9f58ee35bdb0c43db901c2-6714d30d",
   "rows": [
     {
       "rank": null,
@@ -18,9 +18,9 @@
       "status": "failed",
       "submission_id": "ad96d4ff42d5e10909a0d7e1c0f9e1b935e5020031d49acff141cdc8fa5e8090",
       "submitted_at": "2026-10-01T14:10:49.542Z",
-      "logs": "Evaluation timed out or its lease was lost."
+      "logs": "Evaluator did not return valid JSON. Organizers can inspect the private log for the traceback."
     }
   ],
-  "revision": 5,
-  "updated_at": "2026-10-02T14:59:47.322Z"
+  "revision": 6,
+  "updated_at": "2026-10-05T15:03:08.111Z"
 }
