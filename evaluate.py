@@ -1,4 +1,4 @@
-"""GPU evaluation of an ONNX time series encoder with linear (ridge) probes.
+"""Evaluation of an ONNX time series encoder with linear (ridge) probes, on a GPU if there is one, else on CPU.
 
     python evaluate.py model.onnx path/to/evaldata [--out results.json]
 
@@ -38,7 +38,7 @@ class SubmissionError(Exception):
     """A problem with the submitted model, shown to the participant."""
 
 
-def load_model(path, allow_cpu=False):
+def load_model(path):
     if hasattr(ort, "preload_dlls"):  # find CUDA/cuDNN from the nvidia-* pip packages, no LD_LIBRARY_PATH needed
         ort.preload_dlls()
     opts = ort.SessionOptions()
@@ -47,13 +47,10 @@ def load_model(path, allow_cpu=False):
         sess = ort.InferenceSession(path, opts, providers=[CUDA, CPU])
     except Exception as e:
         raise SubmissionError(f"Could not load the ONNX model: {e}") from None
-    # onnxruntime falls back to CPU silently when CUDA fails to initialise; that is the machine's fault, and far
-    # too slow for the full suite, so stop rather than run.
     if sess.get_providers()[0] != CUDA:
-        if not allow_cpu:
-            raise RuntimeError(f"onnxruntime is running on {sess.get_providers()[0]}, not {CUDA}")
         # On CPU, one single-threaded batch per core in parallel (see embed) is 2-4x faster than one batch at a
-        # time across all cores, since a batch of 64 windows rarely keeps many threads busy.
+        # time across all cores when there are many cores, since a batch of 64 windows rarely keeps many threads
+        # busy; on 2 cores the two are equal.
         opts.intra_op_num_threads = 1
         sess = ort.InferenceSession(path, opts, providers=[CPU])
     ins, outs = sess.get_inputs(), sess.get_outputs()
@@ -127,9 +124,10 @@ def probe_auc(x, labels, test):
     return float(np.mean(aucs))
 
 
-def evaluate(model_path, data, allow_cpu=False):
+def evaluate(model_path, data):
     t0 = time.time()
-    sess = load_model(model_path, allow_cpu)
+    sess = load_model(model_path)
+    print(f"running on {sess.get_providers()[0]}", file=sys.stderr, flush=True)
     tasks = json.load(open(os.path.join(data, "tasks.json")))["tasks"]
     feats, res = {}, {}
     for n, task in enumerate(tasks, start=1):
@@ -159,19 +157,13 @@ if __name__ == "__main__":
     ap.add_argument("model", help="path to the ONNX model")
     ap.add_argument("data", help="directory of the unzipped evaluation data")
     ap.add_argument("--out", default=None, help="also write the full results JSON here")
-    ap.add_argument("--allow-cpu", action="store_true", help="run even if CUDA is unavailable (slow; for testing)")
     a = ap.parse_args()
     if not os.path.isfile(os.path.join(a.data, "tasks.json")):
         sys.exit(f"Evaluation data not found at {a.data!r}")
     try:
-        r = evaluate(a.model, a.data, a.allow_cpu)
+        r = evaluate(a.model, a.data)
     except SubmissionError as e:
         print(json.dumps({"error": str(e)}))
-        sys.exit(1)
-    except RuntimeError as e:
-        print(f"ENVIRONMENT FAILURE: {e}", file=sys.stderr)
-        print(json.dumps({"error": "Evaluation could not run because of a problem on the evaluation machine. "
-                          "This is not a problem with your submission; the organizers will re-run it."}))
         sys.exit(1)
     print(f"score {r['score']:.4f}  time {r['seconds']}s", file=sys.stderr)
     if a.out:

@@ -11,9 +11,9 @@ model that passes here loads and runs the same way in the official evaluation. C
     4. deterministic: the same input gives the same embedding
     5. each window is encoded independently of the others in its batch
     6. finite embeddings for raw inputs at very different scales and offsets (the evaluator does not normalize)
-    7. throughput on this machine
+    7. throughput on this machine, and the full evaluation's time at that rate
 
-Exits 0 if every check passes, 1 otherwise. Runs on CPU if there is no GPU; the evaluation itself uses a GPU.
+Exits 0 if every check passes, 1 otherwise. Like the evaluation, it runs on a GPU if there is one, else on CPU.
 """
 
 import argparse
@@ -22,9 +22,10 @@ import time
 
 import numpy as np
 
-from evaluate import BATCH, CONTEXT, CUDA, SubmissionError, embed, load_model
+from evaluate import BATCH, CONTEXT, SubmissionError, embed, load_model
 
 OPSET_MIN = 17
+SUITE_WINDOWS = 158_078  # windows embedded by the full evaluation
 rng = np.random.default_rng(0)
 
 
@@ -44,7 +45,7 @@ def opset(path):
 
 def check(path):
     try:
-        sess = load_model(path, allow_cpu=True)
+        sess = load_model(path)
     except SubmissionError as e:
         return report(False, str(e))
     provider = sess.get_providers()[0]
@@ -86,9 +87,8 @@ def check(path):
     start = time.perf_counter()
     embed(sess, windows)
     rate = len(windows) / (time.perf_counter() - start)
-    print(f"[info] {rate:,.0f} windows/s on {provider}"
-          + ("  (the evaluation embeds ~350k windows on a GPU; aim for a few hundred per second or more)"
-             if provider == CUDA else ""))
+    print(f"[info] {rate:,.0f} windows/s on {provider}: the full evaluation ({SUITE_WINDOWS:,} windows) would take "
+          f"~{SUITE_WINDOWS / rate / 60:.1f} min on this machine")
     return ok
 
 

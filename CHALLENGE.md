@@ -75,8 +75,8 @@ each example are averaged, and a ridge probe is fitted on part of the examples a
 encoder and 1 for a strong reference model**, unbounded both ways. The leaderboard **score** is a weighted
 mean of the task scores; `score_task1`, `score_task2`, ... are shown alongside without saying which task is which.
 
-The full evaluation embeds about 350,000 windows and must finish within an hour; the reference model takes about
-4 minutes on one GPU.
+The full evaluation embeds about 158,000 windows and must finish within an hour. The example model takes about
+3 minutes on 2 CPU cores; `test_submission.py` estimates the time for yours on your machine.
 
 ## Validate submission
 
