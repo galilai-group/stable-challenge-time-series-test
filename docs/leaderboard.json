@@ -3,11 +3,49 @@
   "groups": [],
   "metric": "score",
   "metrics": [
-    "score"
+    "score",
+    "score_task1",
+    "score_task10",
+    "score_task11",
+    "score_task12",
+    "score_task2",
+    "score_task3",
+    "score_task4",
+    "score_task5",
+    "score_task6",
+    "score_task7",
+    "score_task8",
+    "score_task9"
   ],
   "direction": "maximize",
-  "evaluator_version": "eval-a2f0c5b0aa353ad933ddc25d10f66660",
-  "rows": [],
-  "revision": 7,
-  "updated_at": "2026-10-07T13:22:51.912Z"
+  "evaluator_version": "eval-a2f0c5b0aa353ad933ddc25d10f66660-b9706292",
+  "rows": [
+    {
+      "rank": 1,
+      "participant": "fe1331cac51db250",
+      "participant_id": "fe1331cac51db250",
+      "groups": [],
+      "score": 0.785061,
+      "metrics": {
+        "score": 0.785061,
+        "score_task1": 0.794976,
+        "score_task2": 1.063084,
+        "score_task3": 0.807728,
+        "score_task4": 0.965079,
+        "score_task5": 0.758795,
+        "score_task6": 0.692439,
+        "score_task7": 0.897658,
+        "score_task8": 0.853498,
+        "score_task9": 0.640814,
+        "score_task10": 0.492654,
+        "score_task11": 0.961946,
+        "score_task12": 0.837812
+      },
+      "status": "succeeded",
+      "submission_id": "e86c2aee4232d3b51cdf155f8686484e60f6fbf4332b12447f2e38a8026406b2",
+      "submitted_at": "2026-10-06T15:46:21.769Z"
+    }
+  ],
+  "revision": 8,
+  "updated_at": "2026-10-07T13:25:18.359Z"
 }
