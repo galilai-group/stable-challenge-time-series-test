@@ -3,3 +3,4 @@
 tr.failed{background:#fff0ef;color:#873c37}tr.failed td{border-bottom-color:#f1d9d6}.log-button{background:#f4d9d5;color:#79332e;padding:8px 12px;font-size:13px}dialog{border:1px solid #dfe5ee;border-radius:14px;padding:24px;width:min(720px,90vw);max-height:85vh}dialog::backdrop{background:#15223480}dialog pre{white-space:pre-wrap;overflow-wrap:anywhere;font:13px/1.6 ui-monospace,monospace;background:#f6f7f9;padding:18px;border-radius:8px;max-height:50vh;overflow:auto}
 
 select{padding:10px 12px;border:1px solid #dfe5ee;border-radius:8px;background:white;color:inherit;font:inherit;max-width:100%}
+[hidden]{display:none!important}.limits{display:inline-block;margin:0;padding:8px 14px;border-radius:8px;background:#eaf0fb;color:#1d3f86;font-size:14px;font-weight:650}.limits:empty{display:none}
