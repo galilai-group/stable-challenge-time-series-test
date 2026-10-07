@@ -1,39 +1,47 @@
-"""Minimal reader for the training corpus: every series from all four sources,
-shuffled uniformly, yielded in batches.
+"""Minimal reader for the training corpus: every series, shuffled uniformly, yielded in batches.
 
-    unzip corpus.zip -d corpus
+    unzip corpus.zip -d corpus     # -> corpus/corpus.npz
     for batch in batches("corpus", batch_size=64):
-        ...  # list of 1-D float32 arrays; lengths differ (up to 1024, except
-             # audio clips, which are whole recordings at 4 kHz: 0.3 s to minutes)
+        ...  # list of 1-D float32 arrays of different lengths
+
+corpus.npz holds two arrays: ``values`` (float32, all series concatenated) and ``offsets`` (int64; series i is
+values[offsets[i]:offsets[i + 1]]). It is stored uncompressed, so ``values`` is memory-mapped, not read into RAM
+(a plain ``np.load(path)["values"]`` would read all 8.9 GB).
 """
 
+import zipfile
 from pathlib import Path
 
 import numpy as np
 
 
+def _mmap(npz, name):
+    """Memory-map one array of an uncompressed .npz."""
+    with zipfile.ZipFile(npz) as archive:
+        info = archive.getinfo(name)
+        with archive.open(info) as member:
+            fmt = np.lib.format
+            read = fmt.read_array_header_1_0 if fmt.read_magic(member) == (1, 0) else fmt.read_array_header_2_0
+            shape, _, dtype = read(member)
+            header = member.tell()
+    with open(npz, "rb") as handle:  # the member's data starts after its local file header
+        handle.seek(info.header_offset + 26)
+        name_len, extra_len = np.frombuffer(handle.read(4), np.uint16)
+    start = info.header_offset + 30 + int(name_len) + int(extra_len) + header
+    return np.memmap(npz, dtype=dtype, mode="r", offset=start, shape=shape)
+
+
 def load(root):
-    """Return a function mapping a global index to one series, and the count."""
+    """Return a function mapping an index to one series, and the number of series."""
     root = Path(root)
-    values = np.load(root / "lotsa/values.npy", mmap_mode="r")
-    offsets = np.load(root / "lotsa/offsets.npy")
-    market = np.load(root / "market/series.npy", mmap_mode="r")  # (n, 780)
-    pfn = np.load(root / "forecastpfn/series.npy", mmap_mode="r")  # (n, 1024)
-    audio = np.load(root / "audio/values.npy", mmap_mode="r")
-    audio_offsets = np.load(root / "audio/offsets.npy")
-    sizes = np.cumsum([len(offsets) - 1, len(market), len(pfn), len(audio_offsets) - 1])
+    npz = root / "corpus.npz" if root.is_dir() else root
+    values = _mmap(npz, "values.npy")
+    offsets = np.load(npz)["offsets"]
 
     def get(i):
-        if i < sizes[0]:
-            return np.asarray(values[offsets[i] : offsets[i + 1]])
-        if i < sizes[1]:
-            return np.asarray(market[i - sizes[0]])
-        if i < sizes[2]:
-            return np.asarray(pfn[i - sizes[1]])
-        j = i - sizes[2]
-        return np.asarray(audio[audio_offsets[j] : audio_offsets[j + 1]])
+        return np.asarray(values[offsets[i] : offsets[i + 1]])
 
-    return get, int(sizes[-1])
+    return get, len(offsets) - 1
 
 
 def batches(root, batch_size=64, seed=0):

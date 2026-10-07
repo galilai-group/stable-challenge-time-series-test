@@ -19,17 +19,17 @@ onnxruntime are installed with CUDA 12 support.
 
 ## Training data
 
-**Download: `corpus.zip` (8.9 GB) from CORPUS_URL.** Unzip it to get four parts, each with a `manifest.json`:
+**Download: `corpus.zip` (8.9 GB) from [Google Drive](https://drive.google.com/file/d/1O1mOqJ1ZmESVz17JJ_nKvneVQUCmwdQl/view?usp=sharing).** Unzip it to get one file, `corpus.npz`, with two arrays:
 
-| Part | Size | Content |
+| Array | dtype, shape | Content |
 | --- | --- | --- |
-| `lotsa/` | 2.7 GB | univariate series from 92 public datasets (energy, traffic, weather, sales, ...), up to 1,024 points each |
-| `market/` | 0.7 GB | US equities, one full trading day per series: 780 volume-weighted prices at 30 s intervals, 2019-07 to 2020-12 |
-| `forecastpfn/` | 2.5 GB | synthetic series with trend, seasonality and noise, 1,024 points each |
-| `audio/` | 3.0 GB | 25,624 environmental sound recordings at 4 kHz, whole clips (0.3 s to minutes) |
+| `values` | float32, [2,228,606,111] | every series, concatenated |
+| `offsets` | int64, [1,762,339] | series `i` is `values[offsets[i]:offsets[i+1]]` |
 
-Series are raw: unnormalized, unpadded, of different lengths, and not shuffled within a part.
-[corpus_loader.py](corpus_loader.py) reads all four parts as one shuffled stream of 1-D float32 arrays:
+That is all there is: 1,762,338 univariate series in random order, raw (unnormalized, unpadded) and of widely
+varying lengths, with no labels, timestamps, sampling rates or sources.
+[corpus_loader.py](corpus_loader.py) memory-maps the file (a plain `np.load(...)["values"]` would read all 8.9 GB
+into memory) and yields shuffled batches of 1-D float32 arrays:
 
 ```python
 import corpus_loader
